@@ -11,30 +11,77 @@ D17<-read_xlsx(path="H:/Projects/torne-returns/data/orig/Tornionjoki 2017/Kaikki
                sheet="Kaikki kalat 2017", na="")%>%
   mutate(year=2017)
   
-D18<-read_xlsx(path="H:/Projects/torne-returns/data/orig/Tornionjoki 2018/Kaikki kalat 2018.xlsx",
-               sheet="Kaikki kalat 2018", na="")%>%
-  mutate(year=2018)
+
 
 D19<-read_xlsx(path="H:/Projects/torne-returns/data/orig/Tornionjoki 2019/Kaikki kalat 2019.xlsx",
                sheet="Kaikki kalat 2019", na="")%>%
-  mutate(year=2019)
-
-  
-  
+  mutate(year=2019)%>%
   filter(lohi==1)%>%
   mutate(MSW=if_else(msv==T, 1,0, missing=0))%>% 
+  mutate(DistShore=if_else(is.na(`Luotaimen etäisyys rantapenkasta FIN`)==T,
+                           `Luotaimen etäisyys rantapenkasta SWE`,
+                           `Luotaimen etäisyys rantapenkasta FIN`, missing=0))%>% 
   rename(WHeight=`vedenkorkeus pello`,
-         DistShoreFI=`Luotaimen etäisyys rantapenkasta FIN`,
-         DistShoreSE=`Luotaimen etäisyys rantapenkasta SWE`)
+        # DistShoreFI=`Luotaimen etäisyys rantapenkasta FIN`,
+        # DistShoreSE=`Luotaimen etäisyys rantapenkasta SWE`
+         #TempKK=`Pintaveden lämpötila Kukkolankoski`
+         )%>%
+  select(Dir, Distance, Date, year, Side, Window, Hour, WHeight, MSW, DistShore)
+
+View(D19)
 
 datFI<-D19%>%filter(Side=="FIN")%>%
-  mutate(DistTot=Distance+DistShoreFI)
+  mutate(DistTot=Distance+DistShore)
 
 datSE<-D19%>%filter(Side=="SWE")%>%
-  mutate(DistTot=Distance+DistShoreSE)
+  mutate(DistTot=Distance+DistShore)
 
 dat<-full_join(datFI,datSE)
 
+
+ggplot(D19)+
+  geom_point(aes(y=DistShore, x=WHeight), alpha=0.05, col=my_palette[1])+ 
+  facet_wrap(~Side)
+
+dat_test<-datFI%>%filter(WHeight<79)
+#dat_test<-datFI
+v1<-dat_test$DistShore
+v2<-dat_test$WHeight
+m1<-lm(v1~v2)
+summary(m1)
+plot(v1~v2)
+abline(m1)
+
+m2<-lm(datSE$DistShore~datSE$WHeight)
+summary(m2)
+plot(datSE$DistShore~datSE$WHeight)
+abline(m2)
+
+
+D18<-read_xlsx(path="H:/Projects/torne-returns/data/orig/Tornionjoki 2018/Kaikki kalat 2018.xlsx",
+               sheet="Kaikki kalat 2018", na="")%>%
+  mutate(year=2018)%>%
+  filter(lohi==1)%>%
+  mutate(MSW=if_else(msv==T, 1,0, missing=0))%>% 
+  rename(WHeight=`vedenkorkeus pello`)%>%
+  mutate(DistShore=if_else(Side=="FIN",
+                           summary(m1)$coefficients[1]+WHeight*summary(m1)$coefficients[2], 
+                           summary(m2)$coefficients[1]+WHeight*summary(m2)$coefficients[2], 
+                           missing=0))%>%
+  select(Dir, Distance, Date,year, Side, Window, Hour, WHeight, MSW, DistShore)
+
+
+
+dat<-full_join(D18, D19)
+
+ggplot(dat)+
+  geom_point(aes(y=DistShore, x=WHeight, col=year), alpha=0.05)+ 
+  facet_wrap(~Side)
+
+
+  
+  
+  
 ggplot(dat)+
   geom_point(aes(y=DistTot, x=WHeight), alpha=0.05, col=my_palette[1])+ 
   facet_grid(MSW~Side)
