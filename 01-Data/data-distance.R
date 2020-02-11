@@ -40,22 +40,25 @@ ggplot(D19)+
   )+ 
   facet_grid(MSW~Side)
 
-# Aggregate daily counts (FI/SE side, Grilse/MSW)
-dat<-D19%>%
-  group_by(Date, Side, MSW)%>%
-  summarize(n=n())%>%
-  mutate(Year=year(as.POSIXct(Date)))%>%
-  mutate(Day=day(as.POSIXct(Date)))%>%
-  mutate(Month=month(as.POSIXct(Date)))%>%  
-  select(Year,Month,Day,n, Side, MSW)
 
-View(dat)  
+# # Aggregate daily counts (FI/SE side, Grilse/MSW)
+# dat<-D19%>%
+#   group_by(Date, Side, MSW)%>%
+#   summarize(n=n())%>%
+#   # mutate(Year=year(as.POSIXct(Date)))%>%
+#   # mutate(Day=day(as.POSIXct(Date)))%>%
+#   # mutate(Month=month(as.POSIXct(Date)))%>%  
+# mutate(Year=2019)%>%
+#      mutate(ydate=yday(as.POSIXct(Date)))%>%  
+#   select(Year,ydate,n, Side, MSW)
+# 
+# View(dat)  
 
-dat<-D19%>%filter(Side=="FIN", MSW==1)
-
-ggplot(dat, aes(x=Date))+
-  geom_histogram(bins=120)
-# facet_grid(Side~MSW)
+# dat<-D19%>%filter(Side=="FIN", MSW==1)
+# 
+# ggplot(dat, aes(x=ydate))+
+#   geom_histogram(bins=200)+
+#  facet_grid(Side~MSW)
 
 dat_test<-datFI%>%filter(WHeight<79)
 #dat_test<-datFI

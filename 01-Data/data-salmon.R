@@ -10,40 +10,42 @@ D16<-read_xlsx(str_c(pathIn,"Tornionjoki 2016/Kaikki kalat 2016.xlsx"),
   mutate(year=2016)%>%
   mutate(Year=year(as.POSIXct(Date)))%>%
   mutate(Day=day(as.POSIXct(Date)))%>%
-  mutate(Month=month(as.POSIXct(Date)))%>%  
-  mutate(Dayr=Day-16+(Month-5)*30)
+  mutate(Month=month(as.POSIXct(Date)))
 
-test<-D16%>%select(Date, Dayr)
-View(test)
-
-ggplot(test, aes(x=Dayr))+
-  geom_histogram(bins=30)#%>%
-#facet_wrap(~year)
 
 #https://stackoverflow.com/questions/29974535/dates-with-month-and-day-in-time-series-plot-in-ggplot2-with-facet-for-years/47901935
 
 D17<-read_xlsx(str_c(pathIn,"Tornionjoki 2017/Kaikki kalat 2017.xlsx"),
                sheet="Kaikki kalat 2017", na="")%>%
-  mutate(year=2017)
+  mutate(year=2017)%>%
+  mutate(ydate=yday(as.POSIXct(Date)))
+
   
 D18<-read_xlsx(str_c(pathIn,"Tornionjoki 2018/Kaikki kalat 2018.xlsx"),
                sheet="Kaikki kalat 2018", na=c("","-1.$" ))%>%
-  mutate(year=2018)
+  mutate(year=2018)%>%
+  mutate(ydate=yday(as.POSIXct(Date)))
+
 
 D19<-read_xlsx(str_c(pathIn,"Tornionjoki 2019/Kaikki kalat 2019.xlsx"),
                sheet="Kaikki kalat 2019", na="")%>%
-  mutate(year=2019)
+  mutate(year=2019)%>%
+  mutate(ydate=yday(as.POSIXct(Date)))
 
-dat<-full_join(D16,D17)%>%
-  full_join(D18)%>%
+
+dat<-full_join(D17,D18)%>%
+#  full_join(D18)%>%
   full_join(D19)
 
-max(D16$Date)
+  
+df<-dat%>%
+  group_by(Date)%>%
+  summarise(n=n())
+  
 
-
-ggplot(dat, aes(x=Date))+
-  geom_histogram(bins=600)#%>%
-  #facet_wrap(~year)
+ggplot(dat, aes(x=ydate))+
+  geom_histogram(bins=300)+
+  facet_grid(~year)
 
 filter(lohi==1)%>%
   filter(Dir=="Up")%>%
