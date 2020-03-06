@@ -86,7 +86,6 @@ SE[415,]
 
 
 
-
 t1<-Sys.time()
 double<-c(); x<-c();
 tdiff<-c();ldiff<-c()
