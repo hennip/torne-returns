@@ -6,18 +6,134 @@
 # How we can use the distance information to evaluate circumstances
 # in which a certain proportion passes the site unobserved (via the main channel)
 
-D19<-read_xlsx(path="H:/Projects/torne-returns/data/orig/Tornionjoki 2019/Kaikki kalat 2019.xlsx",
+dat19<-read_xlsx(str_c(pathIn,"Tornionjoki 2019/Kaikki kalat 2019.xlsx"),
                sheet="Kaikki kalat 2019", na="")%>%
-  mutate(year=2019)%>%
-  filter(lohi==1)%>%
-  filter(Dir=="Up")%>%
+  filter(lohi==1)%>% # Remember to delete those that go down!
   mutate(MSW=if_else(msv==T, 1,0, missing=0))%>% 
   mutate(DistShore=if_else(is.na(`Luotaimen etäisyys rantapenkasta FIN`)==T,
                            `Luotaimen etäisyys rantapenkasta SWE`,
                            `Luotaimen etäisyys rantapenkasta FIN`, missing=0))%>% 
   rename(WHeight=`vedenkorkeus pello`)%>%
   mutate(DistTot=Distance+DistShore)%>%
-  select(Dir, Distance, Date, year, Side, Window, Hour, WHeight, MSW, DistShore, DistTot)
+  mutate(L=`L(cm)`)%>%
+  mutate(y=year(Date),
+         mon=month(Date),
+         d=day(Date),
+         h=hour(Time),
+         m=minute(Time),
+         s=second(Time))%>%
+  mutate(dttm=make_datetime(year=y, month=mon,day=d,hour=h, min=m, sec=s))%>%
+  select(dttm,Side,DistTot,L,MSW, Window,WHeight, 
+         Dir, DistShore, Distance)
+
+# How to spot salmon seen from both sides?
+# ==========
+
+# Select a limit for water height above which doubles may occur
+# Should we check only window 80?
+dat<-dat19%>%
+  filter(WHeight>78.5)%>%
+  filter(Window==80)
+
+dim(filter(dat, Side=="FIN"))
+#[1] 252   18
+dim(filter(dat, Side=="SWE"))
+#[1] 646   18
+
+# dttm2:een pitää määrittää myös minimiaika mikä siirtymiseen vähintään kuluu!
+SE<-dat%>%filter(Side=="SWE")%>%
+  mutate(dttm2=dttm-dminutes(1))%>%
+  mutate(limit1=L-1, limit2=L+1) # or whatever range in size could be interpreted as the same fish
+
+FI<-dat%>%filter(Side=="FIN")%>%
+  mutate(dttm2=dttm+dminutes(1))%>%
+  mutate(limit1=L-1, limit2=L+1)
+
+
+
+t1<-Sys.time()
+double<-c(); x<-c();
+tdiff<-c();ldiff<-c()
+for(i in 1:dim(FI)[1]){
+  #i<-1
+  tmp<-0
+  intFI<-interval(FI$dttm[i], FI$dttm2[i])
+  for(j in 1:dim(SE)[1]){
+    #j<-1
+    if(SE$L[j]>FI$limit1[i] & SE$L[j]<FI$limit2[i]){
+      if(SE$dttm[j] %within% intFI){
+        double[i]<-1
+        x[i]<-j
+        tdiff[i]<-difftime(SE$dttm[j],FI$dttm[i])
+        ldiff[i]<-FI$L[i]-SE$L[j]
+        tmp<-1
+      } 
+    }
+  }
+  if(tmp==0){double[i]<-NA; x[i]<-NA;ldiff[i]<-NA; tdiff[i]<-NA}
+}
+t2<-Sys.time()
+t2-t1
+sum(double,na.rm=T)
+# 283
+
+tmp<-FI%>%mutate(double=double, x=x, ldiff=ldiff, tdiff=tdiff)
+filter(tmp, is.na(double)==F)%>%select(x,ldiff,tdiff, everything())
+
+SE[98,]
+SE[235,]
+SE[415,]
+
+
+
+
+t1<-Sys.time()
+double<-c(); x<-c();
+tdiff<-c();ldiff<-c()
+for(i in 1:dim(SE)[1]){
+  #i<-1
+  tmp<-0
+  intSE<-interval(SE$dttm2[i], SE$dttm[i])
+  for(j in 1:dim(FI)[1]){
+    #j<-1
+    if(FI$L[j]>SE$limit1[i] & FI$L[j]<SE$limit2[i]){
+      if(FI$dttm[j] %within% intSE){
+        double[i]<-1
+        x[i]<-j
+        tdiff[i]<-difftime(FI$dttm[j],SE$dttm[i])
+        ldiff[i]<-SE$L[i]-FI$L[j]
+        tmp<-1
+      } 
+    }
+  }
+  if(tmp==0){double[i]<-NA; x[i]<-NA;ldiff[i]<-NA; tdiff[i]<-NA}
+}
+t2<-Sys.time()
+t2-t1
+sum(double,na.rm=T)
+# 283
+
+SE<-SE%>%mutate(double=double, x=x, ldiff=ldiff, tdiff=tdiff)
+filter(SE, is.na(double)==F)%>%select(x,ldiff,tdiff, everything())
+
+FI[70,]
+FI[122,]
+FI[176,]
+
+
+
+
+
+
+
+
+
+
+
+
+
+D19<-dat19%>%
+  filter(Dir=="Up")
 
 View(D19)
 
@@ -39,6 +155,48 @@ ggplot(D19)+
   geom_point(aes(y=DistTot, x=WHeight, col=Date), alpha=0.05#, col=my_palette[1]
   )+ 
   facet_grid(MSW~Side)
+
+
+
+
+FI[16,]
+
+
+
+t1<-Sys.time()
+d2<-c(); timediff2<-c();ldiff2<-c()
+for(i in 1:dim(FI)[1]){
+  #
+  i<-1
+  intFI<-interval(FI$Time[i], FI$Time2[i])
+  for(j in 1:dim(SE)[1]){
+    #
+    j<-1
+    if(SE$L[j]>FI$limit1[i] & SE$L[j]<FI$limit2[i]){
+      if(SE$Time[j] %within% intFI){
+        d2[i]<-1
+        timediff[i]<-SE$Time[j]-FI$Time[i]
+        ldiff[i]<-SE$L[j]-FI$L[i]
+      }  
+    }
+    
+  }
+}
+t2<-Sys.time()
+t2-t1
+sum(d2,na.rm=T)
+summary(timediff2)
+summary(ldiff2)
+
+
+
+
+
+
+View(tmp)
+
+tmp
+#https://rdrr.io/cran/lubridate/man/within-interval.html
 
 
 # # Aggregate daily counts (FI/SE side, Grilse/MSW)
