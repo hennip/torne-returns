@@ -1,0 +1,22 @@
+
+model{
+
+pmin~dbeta(10,100)
+pmax~dbeta(100,10)
+a~dnorm(0.025,10000)
+b~dnorm(0.003271,10000)
+
+
+
+for(i in 1:n){
+
+logit(pobs[i])<-logit_pobs[i]
+logit_pobs[i]~dnorm(mu[i],tau)
+  mu[i]<-  step(whmin-wh[i])*pmin +# min
+        (1-step(whmin-wh[i]))*(1-step(wh[i]-whmax))*(a+b*wh[i])+ # mid
+        step(wh[i]-whmax)*pmax #max
+}
+tau<-1/(sd*sd)
+sd<-0.001#~dlnorm(0.87,200)
+
+}
