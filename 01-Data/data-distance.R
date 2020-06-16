@@ -31,21 +31,18 @@ dat19<-read_xlsx(str_c(pathIn,"Tornionjoki 2019/Kaikki kalat 2019.xlsx"),
 #   arrange(dttm)
 # View(tmp)
 
-# Distance dist on FIN side with short/long window
-# Grilse / MSW ?
-
-
-
+# Distance distributions
+############################
+# FIN/SWE side with short/long window
+# 0=Grilse, 1=MSW 
 
 WHseq<-seq(77.3,78.7, by=0.2)
 WHseq1<-c(77, WHseq, 79.5)
 
-
-
 #FIN
 ##########################
 for(i in 1:(length(WHseq1)-1)){
-  #i<-3
+  #i<-1
   tmp<-dat19%>%
     filter(is.na(DistShore)==F)%>%
     filter(Side=="FIN", WHeight>WHseq1[i] & WHeight<=WHseq1[i+1], Dir=="Up")%>%
@@ -56,84 +53,18 @@ for(i in 1:(length(WHseq1)-1)){
     filter(m>=40 & m<50)# tunnin 2. viimeiset 10 min
   
   df<-full_join(dat80,dat40)%>%
-    mutate(Window2=as.factor(Window))
+    mutate(Window2=as.factor(Window))#%>%
+    #mutate(MSW=1)
   
   print(
     ggplot(df, aes(x=DistTot, fill=Window2, col=Window2))+
-          geom_histogram(bins=70, alpha=1/10)+
+          geom_histogram(bins=30, alpha=0.2, position = "identity")+
           xlim(0,110)+
-          geom_vline(xintercept=df$DistShore, color="red")+
+          geom_vline(xintercept=df$DistShore, color="black")+
           geom_vline(xintercept=82, color="blue")+
           labs(x="Distance from shore", title=str_c("FIN, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-          facet_wrap(MSW~Window)
-        
-  )
-}
-
-for(i in 1:(length(WHseq1)-1)){
-  #i<-3
-  tmp<-dat19%>%
-    filter(is.na(DistShore)==F)%>%
-    filter(Side=="FIN", WHeight>WHseq1[i] & WHeight<=WHseq1[i+1], Dir=="Up")%>%
-    arrange(dttm)
-  
-  dat80<-tmp%>%filter(Window==80)
-  dat40<-tmp%>%filter(Window==40)%>%
-    filter(m>=40 & m<50)# tunnin 2. viimeiset 10 min
-  
-  df<-full_join(dat80,dat40)%>%
-    mutate(Window2=as.factor(Window))
-  
-  print(
-    ggplot(df, aes(x=DistTot, fill=Window2, col=Window2))+
-          geom_histogram(bins=70, alpha=0.2, position = "identity")+
-          xlim(0,110)+
-          geom_vline(xintercept=df$DistShore, color="red")+
-          geom_vline(xintercept=82, color="blue")+
-          labs(x="Distance from shore", title=str_c("FIN, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-          #facet_wrap(MSW~Window)
         facet_wrap(~MSW)
         
-  )
-}
-
-
-
-
-
-
-
-for(i in 1:(length(WHseq1)-1)){
-  #i<-3
-  tmp<-dat19%>%
-    filter(is.na(DistShore)==F)%>%
-    filter(Side=="FIN", WHeight>WHseq1[i] & WHeight<=WHseq1[i+1], Dir=="Up")%>%
-    arrange(dttm)
-  
-  dat80<-tmp%>%filter(Window==80)
-  dat40<-tmp%>%filter(Window==40)%>%
-    filter(m>=40 & m<50)# tunnin 2. viimeiset 10 min
-  
-  df<-full_join(dat80,dat40)%>%
-    mutate(Window2=as.factor(Window))
-  
-  p1<-ggplot(df, aes(x=DistTot, fill=Window2, col=Window2))+
-      geom_histogram(bins=70, alpha=1/10)+
-      xlim(0,110)+
-      geom_vline(xintercept=df$DistShore, color="red")+
-      geom_vline(xintercept=82, color="blue")+
-      labs(x="Distance from shore", title=str_c("FIN, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-      #facet_wrap(MSW~Window)
-      facet_wrap(~MSW)
-    
-  p2<-ggplot(df, aes(x=DistTot, fill=Window2, col=Window2))+
-    geom_histogram(bins=70, alpha=1/10)+
-    xlim(0,110)+
-    geom_vline(xintercept=df$DistShore, color="red")+
-    geom_vline(xintercept=82, color="blue")+
-    labs(x="Distance from shore", title=str_c("FIN, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-    facet_wrap(MSW~Window)
-  
   )
 }
 
@@ -141,12 +72,8 @@ for(i in 1:(length(WHseq1)-1)){
 # p <- ggplot(mtcars,aes(mpg))+geom_histogram()+
 #   facet_wrap(~cyl)+geom_vline(data=data.frame(x=c(20,30)),aes(xintercept=x))
 # 
-pg1 <- ggplot_build(p1) #55
-d1<-pg1$data[[1]][,4]
-pg2 <- ggplot_build(p2) #55
-d2<-pg2$data[[1]][,4]
-
-cbind(d1, d2)
+#pg1 <- ggplot_build(p1) #55
+#d1<-pg1$data[[1]][,4]
 
 #SWE
 ##########################
@@ -164,74 +91,18 @@ for(i in 1:(length(WHseq1)-1)){
   df<-full_join(dat80,dat40)%>%
     mutate(Window2=as.factor(Window))
   
-  
-  
   print(ggplot(df, aes(x=DistTot, fill=Window2, col=Window2))+
-          geom_histogram(bins=70)+
+          geom_histogram(bins=70, alpha=0.2, position = "identity")+
           xlim(0,110)+
-          geom_vline(xintercept=df$DistShore, color="red")+
+          geom_vline(xintercept=df$DistShore, color="black")+
           geom_vline(xintercept=86, color="blue")+
           labs(x="Distance from shore", title=str_c("SWE, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-          facet_wrap(MSW~Window)
-          
-  )
-}
-
-for(i in 1:(length(WHseq1)-1)){
-  #i<-1
-  tmp<-dat19%>%
-    filter(is.na(DistShore)==F)%>%
-    filter(Side=="SWE", WHeight>WHseq1[i] & WHeight<=WHseq1[i+1], Dir=="Up")%>%
-    arrange(dttm)
-  
-  dat80<-tmp%>%filter(Window==80)
-  dat40<-tmp%>%filter(Window==40)%>%
-    filter(m>=40 & m<50)# tunnin 2. viimeiset 10 min
-  
-  df<-full_join(dat80,dat40)%>%
-    mutate(Window2=as.factor(Window))
-  
-  print(ggplot(df, aes(x=DistTot, fill=Window2, col=Window2))+
-          geom_histogram(bins=70, alpha=1/10)+
-          xlim(0,110)+
-          geom_vline(xintercept=df$DistShore, color="red")+
-          geom_vline(xintercept=86, color="blue")+
-          labs(x="Distance from shore", title=str_c("SWE, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-          #facet_wrap(MSW~Window)
           facet_wrap(~MSW)
         
   )
 }
 
 
-
-#FIN
-# for(i in 1:(length(WHseq1)-1)){
-#   tmp<-dat19%>%
-#   filter(is.na(DistShore)==F)%>%
-#   filter(Side=="FIN", WHeight>WHseq1[i] & WHeight<=WHseq1[i+1], Dir=="Up")%>%
-#   arrange(dttm)
-# 
-# dat80<-tmp%>%filter(Window==80)
-# dat40<-tmp%>%filter(Window==40)%>%
-#   filter(m>=40 & m<50)# tunnin 2. viimeiset 10 min
-# 
-# df<-full_join(dat80,dat40)
-# 
-# df<-df%>%
-#  # filter(MSW==0)%>%
-#   mutate(Window2=as.factor(Window))
-# 
-# print(ggplot(df, aes(x=DistTot, after_stat(density)))+
-#   geom_freqpoly(aes(col=Window2),bins=30)+#binwidth=1)
-#     #geom_density(aes(col=Window2))+
-#     xlim(0,110)+
-#     #geom_vline(xintercept=df$DistShore, color="red")+
-#     geom_vline(xintercept=82, color="blue")+
-#     labs(x="Distance from shore", title=str_c("FIN, water height ",WHseq1[i],"-",WHseq1[i+1]))+
-#     facet_wrap(~MSW)
-# )
-# }
 
 
 
