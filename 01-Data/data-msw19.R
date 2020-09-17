@@ -22,6 +22,7 @@ dat19<-read_xlsx(str_c(pathIn,"Tornionjoki 2019/Kaikki kalat 2019.xlsx"),
          Dir, DistShore, Distance, Date, h,m)
 
 
+# Pick first only the MSW salmon at FIN side
 df<-dat19%>%
   filter(is.na(DistShore)==F)%>%
   filter(Side=="FIN", Dir=="Up")%>%
@@ -54,12 +55,12 @@ df80<-df%>%
   mutate(w80=n)%>%
   select(-n)
 
-df_tot<-full_join(df40,df80, key=Date)%>%
+counts_tot<-full_join(df40,df80, key=Date)%>%
   mutate(w40=ifelse(is.na(w40)==T, 0, w40))%>%
   mutate(w80=ifelse(is.na(w80)==T, 0, w80))%>%
   mutate(tot=w40+w80)
-df_tot
-#View(df_tot)
+counts_tot
+#View(counts_tot)
 
 
 # Daily frequency distributions per distance
@@ -72,6 +73,7 @@ x<-seq(0,82, by=2.5 )
 #x<-seq(0,82, length.out=31 )
 x
 length(x)
+
 dg_limits<-tibble(
   DistGroup=1:length(x),
   l1=x, 
@@ -94,7 +96,7 @@ df2<-df%>%
   select(Date, DistTot, DistGroup, everything())
 df2
 
-# remove observations beyond 82m 
+# remove observations beyond 82m (-> NA for DistGroup)
 #df2%>%filter(is.na(DistGroup)==T)
 df2<-df2%>%filter(is.na(DistGroup)==F)
 
@@ -105,14 +107,17 @@ df2%>%summarise(min(Date),max(Date))
 Days<-seq(as.Date("2019-06-04"),as.Date("2019-08-21"), by=1)#obs in FIN MSW 2019 data
 nD<-length(Days)
 
-# Daily counts at a specific distance
+# Daily counts at a specific distance, per Window 40 and Window 80
+# 33xnD matrix, where 33 is number of distance groups and nD is the number of days
+for(g in 1:2){
+ifelse(g==1,w<-40, w<-80)
+
 dfX<-tibble(DistGroup=1:length(x))
 tbl<-NULL
 for(i in 1:nD){
   #i<-2
     tmp<-df2%>%
-      #filter(Window==40)%>%
-      filter(Window==80)%>%
+      filter(Window==w)%>%
       filter(Date==Days[i])%>%
   group_by(DistGroup)%>%
     tally()
@@ -132,8 +137,10 @@ for(i in 1:dim(tbl)[1]){
 
 names(tbl)<-c(1:nD)
 #sum(tbl,na.rm=T)
-tbl_40<-tbl
-tbl_80<-tbl
+ifelse(g==1,tbl_40<-tbl,tbl_80<-tbl)
+
+}
+
 sum(tbl_40,na.rm=T)
 sum(tbl_80,na.rm=T)
 #View(tbl_40)
@@ -142,17 +149,13 @@ sum(tbl_80,na.rm=T)
 tmpX<-df2%>%filter(WHeight<77.3)%>%
   mutate(DS2=as.factor(DistShore))%>%
   select(DS2, everything())
-
 levels(tmpX$DS2)
-
 #View(tmpX%>%filter(DS2=="23.7"))
-
 
 # Treat these distances from the shore as the same 
 tmpX<-tmpX%>%mutate(DistShore2=ifelse(DistShore==23.7,23.5, DistShore))%>%
   mutate(DS2=as.factor(DistShore2))%>%
   select(DS2, everything())
-
 levels(tmpX$DS2)
 
 
@@ -160,35 +163,141 @@ levels(tmpX$DS2)
 # colours indicate observations from specific device distance from shore
 ggplot(tmpX, aes(x=DistTot, col=DS2, fill=DS2, alpha=0.1))+
   #geom_density()+
+  # identity draws each group at the top of the previous,
+  # use transparency if position="identity"
   #geom_histogram(bins=40, position = "identity")+
-  geom_histogram(bins=33)+
+  # stack piles up the observations
+  geom_histogram(bins=33, position="stack")+
   xlim(0,82)+
   geom_vline(xintercept=tmpX$DistShore, color="black")+
   facet_wrap(~Window, scales="free")
 
-# Same in numbers
-counts<-tmpX%>%
-  group_by(DistGroup)%>%
-  tally()
-
-counts<-inner_join(dg_limits,counts, key=DistGroup)
-
-counts1<-counts%>%filter(l2<=40)
-counts2<-counts%>%filter(l2>40)
-
-
-ggplot(tmpX%>%filter(Window==40), aes(x=DistTot, col=DS2, fill=DS2, alpha=0.1))+
-  geom_histogram(bins=30, position = "identity")+
-  xlim(0,80)+
-  facet_wrap(~DS2)
-
-ggplot(tmpX%>%filter(Window==80), aes(x=DistTot, col=DS2, fill=DS2, alpha=0.1))+
-  geom_histogram(bins=30, position = "identity")+
-  xlim(0,80)+
-  facet_wrap(~DS2)
+# # Same in numbers
+# counts<-tmpX%>%
+#   group_by(DistGroup)%>%
+#   tally()
+# 
+# counts<-inner_join(dg_limits,counts, key=DistGroup)
+# counts1<-counts%>%filter(l2<=40)
+# counts2<-counts%>%filter(l2>40)
 
 
-#ds<-c("32.7","28.7","25.5","23.5","22.6")
+# Estimate distance distribution as a combination of two normal distrs
+cp<-42.5 # cutting point
+
+w40_1<-tmpX%>%filter(DistTot<=cp, Window==40)#403
+w40_2<-tmpX%>%filter(DistTot>cp, Window==40)#1320
+w80_1<-tmpX%>%filter(DistTot<=cp, Window==80)#40
+w80_2<-tmpX%>%filter(DistTot>cp, Window==80)#194
+
+stat40<-stat80<-array(NA, dim=c(2,2))
+stat40[1,]<-as.matrix(w40_1%>%summarise(mu=mean(DistTot), sd=sd(DistTot)))
+stat40[2,]<-as.matrix(w40_2%>%summarise(mu=mean(DistTot), sd=sd(DistTot)))
+stat80[1,]<-as.matrix(w80_1%>%summarise(mu=mean(DistTot), sd=sd(DistTot)))
+stat80[2,]<-as.matrix(w80_2%>%summarise(mu=mean(DistTot), sd=sd(DistTot)))
+
+n40<-n80<-c()
+n40[1]<-w40_1%>%tally();n40[2]<-w40_2%>%tally()
+n80[1]<-w80_1%>%tally();n80[2]<-w80_2%>%tally()
+
+data<-list(
+  mu40=stat40[,1], sd40=stat40[,2],
+  mu80=stat80[,1], sd80=stat80[,2],
+  n40=n40, n80=n80
+)
+
+MX<-"model{
+
+W40[1]~dnorm(mu40[1],tau40[1])I(20,42.5)
+W40[2]~dnorm(mu40[2],tau40[2])I(42.5,)
+W80[1]~dnorm(mu80[1],tau80[1])I(20,42.5)
+W80[2]~dnorm(mu80[2],tau80[2])I(42.5,)
+
+for(i in 1:2){
+  #cv40[i]<-sd40[i]/mu40[i]
+  tau40[i]<-1/pow(sd40[i],2)
+  p40[i]<-n40[i]/(n40[1]+n40[2])
+
+  tau80[i]<-1/pow(sd80[i],2)
+  p80[i]<-n80[i]/(n80[1]+n80[2])
+}
+
+#W40[1]~dlnorm(M[1],T[1])I(20,42.5)
+#W40[2]~dlnorm(M[2],T[2])I(42.5,)
+#M[i]<-log(mu[i])-0.5/T[i]
+#T[i]<-1/log(cv[i]*cv[i]+1)
+
+
+Y40~dcat(p40[1:2])
+Y80~dcat(p80[1:2])
+
+D40<-W40[Y40]
+D80<-W80[Y80]
+
+D40pred<-
+
+}"
+
+var_names<-c(
+"D40", "D80"
+    )
+
+
+run0<-run.jags(MX, 
+               monitor= var_names,data=data,#inits = inits,
+               n.chains = 2, method = 'parallel', thin=1, burnin =0, 
+               modules = "mix",keep.jags.files=F,sample =10000, adapt = 100, 
+               progress.bar=TRUE)
+
+#summary(run0)     
+plot(run0)
+
+chains<-as.mcmc.list(run0)
+ plot(density(chains[,"D40"][[1]]))
+ plot(density(chains[,"D80"][[1]]))
+
+
+ggplot(tmpX, aes(x=DistTot, col=DS2, fill=DS2, alpha=0.1))+
+  geom_histogram(bins=33, position="stack")+
+  xlim(0,82)+
+  geom_vline(xintercept=tmpX$DistShore, color="black")+
+  facet_wrap(~Window, scales="free")
+
+tmpX40<-tmpX%>%filter(Window==40)
+tmpX80<-tmpX%>%filter(Window==80)
+
+par(mfrow=c(1,2))
+plot(density(tmpX40$DistTot), ylim=c(0,0.05))
+lines(density(chains[,"D40"][[1]]), col="red")
+
+plot(density(tmpX80$DistTot), ylim=c(0,0.05))
+lines(density(chains[,"D80"][[1]]), col="red")
+
+
+
+
+
+
+
+
+
+
+# chains<-as.mcmc.list(run0)
+# plot(density(chains[,"w40"][[1]]))
+# plot(density(chains[,"w80"][[1]]))
+# traceplot(chains)
+
+# ggplot(tmpX%>%filter(Window==40), aes(x=DistTot, col=DS2, fill=DS2, alpha=0.1))+
+#   geom_histogram(bins=30, position = "identity")+
+#   xlim(0,80)+
+#   facet_wrap(~DS2)
+# 
+# ggplot(tmpX%>%filter(Window==80), aes(x=DistTot, col=DS2, fill=DS2, alpha=0.1))+
+#   geom_histogram(bins=30, position = "identity")+
+#   xlim(0,80)+
+#   facet_wrap(~DS2)
+
+
 ds<-c("22.6","23.5","25.5","28.7","32.7")
 
 #View(tmpX%>%filter(DistShore==22.6))
