@@ -1,3 +1,4 @@
+
 source("00-Functions/packages-and-paths.r")
 
 
@@ -7,9 +8,8 @@ dat19<-read_xlsx(str_c(pathIn,"Tornionjoki 2019/Kaikki kalat 2019.xlsx"),
   mutate(MSW=if_else(msv==T, 1,0, missing=0))%>% 
   mutate(DistShore=if_else(is.na(`Luotaimen etäisyys rantapenkasta FIN`)==T,
                            `Luotaimen etäisyys rantapenkasta SWE`,
-                           `Luotaimen etäisyys rantapenkasta FIN`, missing=0))%>% 
+                           `Luotaimen etäisyys rantapenkasta FIN`, missing=NULL))%>% 
   rename(WHeight=`vedenkorkeus pello`)%>%
-  mutate(DistTot=Distance+DistShore)%>%
   mutate(L=`L(cm)`)%>%
   mutate(y=year(Date),
          mon=month(Date),
@@ -21,11 +21,22 @@ dat19<-read_xlsx(str_c(pathIn,"Tornionjoki 2019/Kaikki kalat 2019.xlsx"),
   select(dttm,Side,DistTot,L,MSW, Window,WHeight, 
          Dir, DistShore, Distance, Date, h,m)
 
+View(dat19)
 
 # Pick first only the MSW salmon at FIN side
-df<-dat19%>%
-  filter(is.na(DistShore)==F)%>%
+dfFI<-dat19%>%
   filter(Side=="FIN", Dir=="Up")%>%
+  filter(MSW==1)
+
+
+View(filter(dfFI, is.na(DistShore)==T))
+
+df<-dfFI%>%
+  # Vakioetaisyys 5.7m silloin kun Suomen puolen mittaus kiintopisteesta luotaimeen
+  # puuttuu. Jos paikka oikeasti vaihtelee, se taytyy huomioida esim maarittamalla
+  # toinen/useita if_else lauseita paivamaaran tai vedenkorkeuden mukaan. 
+  mutate(DistShore2=if_else(is.na(DistShore)==F, DistShore, 5.7))%>%
+  mutate(DistTot=Distance+DistShore2)%>%
   arrange(dttm)%>%
   filter(MSW==1)
 df
@@ -234,12 +245,23 @@ Y80~dcat(p80[1:2])
 D40<-W40[Y40]
 D80<-W80[Y80]
 
-D40pred<-
+# This works too but doesn't account for limits
+#phi40 ~ dnormmix(mu40, tau40, p40)
+
+#https://sourceforge.net/p/mcmc-jags/discussion/610037/thread/972e6235/
+# Does not work since I(,) notation is only allowed if all parameters are fixed
+# phi ~ dnorm(mu40[r], tau40[r])I(a[r],b[r])
+# r ~ dcat(p40[1:2])
+# a[1]<-20
+# b[1]<-42.5
+# a[2]<-42.5
+# b[2]<-100
 
 }"
 
 var_names<-c(
-"D40", "D80"
+"D40", "D80",
+"phi40", "phi"
     )
 
 
@@ -254,6 +276,7 @@ plot(run0)
 
 chains<-as.mcmc.list(run0)
  plot(density(chains[,"D40"][[1]]))
+ lines(density(chains[,"phi40"][[1]]), col="red")
  plot(density(chains[,"D80"][[1]]))
 
 
@@ -451,6 +474,7 @@ pg1$data[[1]][,4][31:55] #w40
 
 ggplot(tmp, aes(x=DistShore))+
   geom_histogram(bins=70)
+
 
 
 
